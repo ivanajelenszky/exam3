@@ -8,5 +8,8 @@ output: pdf_document
 # Exam 3 
 ## By: Ivana Jelenszky
 
+```{r}
+
+```
 
 
