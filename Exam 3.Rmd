@@ -8,8 +8,278 @@ output: pdf_document
 # Exam 3 
 ## By: Ivana Jelenszky
 
+### Had problems with the exam :( I'm sorry I did my best I think it is my own Rstudio because it wasn't running the libraries at first and that's why some functions weren't working! sorry :(    
+
+
+
+Let's get started!
+
+First things first: clear the environment
+
 ```{r}
+# clear the environment
+rm(list=ls(all=TRUE))
+```
+
+
+
+Now, let's load the packages
+
+```{r}
+# load tidy census
+library(tidycensus)
+```
+
+Use API key to use the data
+```{r}
+# call api key 
+census_api_key("b8699fbc0e9983cdc46e93bc24472f9b5bc4bcee",
+               install = TRUE,
+               overwrite = TRUE)
+
+readRenviron("~/.Renviron")
+```
+
+Load some data
+```{r}
+# load data to start the exam 
+data_2010 <- load_variables(year = 2010,
+                      "acs5") 
+data_2015 <- load_variables(year = 2015,
+                      "acs5") 
+```
+
+Now let's view the data
+
+```{r}
+#view data
+View(data_2010)
+View(data_2015)
+```
+
+Subset the data
+
+```{r}
+# subset 
+inequality_data_2010 = subset (data_2010, name == "B19083_001")
+inequality_data_2015 = subset (data_2015, name == "B19083_001")
+```
+
+Let's append the data so it is easier to examine and analyze it
+
+```{r}
+# install dplyr
+# append the data
+library(dplyr)
+library(tidyverse)
+library(tidycensus)
+library(sf)
+all_inequality_data <- bind_rows(inequality_data_2010,inequality_data_2015)
+
+View(all_inequality_data)
 
 ```
+
+```{r}
+inequality_panel <- get_acs(geography = "state",
+                 variables = c(Estimate_Gini_Index= c("B19083_001")),
+                 year = 2010)
+```
+
+
+Let's rename variables
+```{r}
+# load data.table
+# set names 
+library(data.table)
+ setnames(inequality_panel,"estimate", "gini") 
+ setnames(inequality_panel,"NAME", "state") 
+```
+
+Get the data Wide 
+```{r}
+inequality_wide <-
+collapsed_data %>%
+pivot_wider(id_cols = c("state", "gini", "year"),
+names_from = "year",
+values_from = "gini")
+
+head(inequality_wide)
+```
+
+Reshape it to Long
+
+```{r}
+inequality_long <-
+  wide_by_year %>%
+  pivot_longer(cols = starts_with("year"),
+               names_to = "year",
+               values_to = "gini")
+
+head(inequality_long)
+```
+
+Check the number of observations
+```{r}
+library(doBy)
+summaryBy(inequality_panel~inequality_long,
+          data=all_inequality_data,
+          FUN=c(mean,length))
+```
+
+Inequality collapsed 
+
+```{r}
+inequality_collapsed <-
+all_inequality_data%>%
+  group_by(state, gini, year)
+```
+
+
+Produce a map of the United States 
+
+```{r}
+#load libraries and maps
+library(rio) 
+library(tidyverse)
+library(googlesheets4) 
+library(labelled) 
+library(data.table)
+library(varhandle) 
+library(ggrepel) 
+library(geosphere) 
+library(rgeos)
+library(viridis)
+library(mapview) 
+library(rnaturalearth) 
+library(rnaturalearthdata) 
+library(devtools)
+library(remotes)
+library(raster)
+library(sp) 
+library(sf)
+
+us_map = ggplot() +
+  geom_sf(data = all_inequality_data) +
+geom_sf(data = all_inequality_data, aes(shape=inequality_collapsed)) +
+
+
+```
+
+# load WDI package 
+
+```{r}
+library(WDI)
+
+gdp_current = WDI(country = "all", 
+                  indicator = c("NY.GDP.MKTP.CD"),
+                  start = 2006, 
+                  end = 2007,
+                  extra = FALSE)
+
+```
+
+# Deflate the dollars
+
+```{r}
+library(data.table) 
+setnames(all_inequality_data,"NY.GDP.MKTP.CD", "gdp_current")
+```
+
+# Deflate part 2
+
+```{r}
+usd_deflator = subset(gdp_current, country=="United States")
+```
+
+10. In a Shiny app, what are the three main components and their subcomponents? [5 points]
+
+the User interface, server, and executing the app / (render)
+
+Pull PDF files
+
+```{r}
+# load librarys
+library(pdftools)
+library(tidyr) 
+library(tidytext) 
+library(dplyr)
+library(stringr) 
+mytext=pdf_text(pdf ="https://pdf.usaid.gov/pdf_docs/PA00TNMG.pdf")
+```
+
+Convert the text pulled to a data frame 
+
+```{r}
+armeniatext=as.data.frame(mytext)
+armeniatext$page=c(1:65)
+colnames(armeniatext)[which(names(armeniatext) == "armeniatext")] <- "text"
+```
+
+Now tokenize and remove stop words
+
+```{r}
+
+# now tokenize
+armeniatext=armeniatext %>%
+  unnest_tokens(word, text) 
+
+# get rid of stop words
+armeniatext = armeniatext %>%
+  anti_join(stop_words)
+```
+
+Figure out the top 5
+
+```{r}
+armeniafreq <- armeniatext %>% count(word, sort = TRUE)
+head(armeniafreq)
+```
+
+Get the bill board page 
+
+```{r}
+#load packages
+library(rvest)
+library(dplyr)
+library(ggplot2)
+hot100page = "https://www.billboard.com/charts/hot-100" hot100exam = read_html(hot100page)
+```
+
+Identify all the nodes
+
+```{r}
+body_nodes = hot100exam %>%
+  html_node("body") %>%
+  html_children()
+body_nodes 
+
+body_nodes %>%
+  html_children()
+```
+
+```{r}
+rank = hot100exam %>%
+  rvest::html_nodes('body') %>%
+  xml2::xml_find_all("//span[contains(@class,'chart-element__rank__number')]") %>%
+  rvest::html_text() 
+
+artist = hot100exam %>%
+  rvest::html_nodes('body') %>%
+  xml2::xml_find_all("//span[contains(@class,'chart-element__information__artist')]") %>%
+  rvest::html_text() 
+
+title = hot100exam %>%
+  rvest::html_nodes('body') %>%
+  xml2::xml_find_all("//span[contains(@class,'chart-element__information__song')]") %>%
+  rvest::html_text() 
+
+
+last week = hot100exam %>%
+  rvest::html_nodes('body') %>%
+  xml2::xml_find_all("//span[contains(@class,'chart-element__meta')]") %>%
+  rvest::html_text() 
+```
+
 
 
